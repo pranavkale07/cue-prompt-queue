@@ -92,12 +92,12 @@ export class Interceptor {
     } satisfies Partial<CSSStyleDeclaration>);
     btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
     btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.7'));
-    // Stacked-layers glyph to read as "add to queue".
+    // List-with-plus glyph: rows of a list plus a "+", reading as "add to queue".
     btn.innerHTML =
       '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" ' +
       'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
-      'stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/>' +
-      '<path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>';
+      'stroke-linejoin="round"><path d="M16 6H3"/><path d="M11 12H3"/>' +
+      '<path d="M11 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/></svg>';
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
