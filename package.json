@@ -1,0 +1,21 @@
+{
+  "name": "gpt-queue-extension",
+  "version": "0.1.0",
+  "description": "Queue multiple prompts and auto-send them as ChatGPT finishes each response.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/generate-icons.mjs",
+    "package": "npm run build && cd dist && zip -r -FS ../prompt-queue-extension.zip . && cd .."
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/node": "^25.9.3",
+    "sharp": "^0.35.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

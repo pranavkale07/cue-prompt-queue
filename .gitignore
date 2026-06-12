@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Packaged extension (regenerate with `npm run package`)
+*.zip
+
+# Generated store assets (flattened from assets/store/*, regenerate as needed)
+assets/store/upload/
+
+# Local dev scratch / capture scripts
+cue-capture.txt
+
+# Internal docs (keep only README.md and PRIVACY.md public)
+ARCHITECTURE.md
+STORE_LISTING.md
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,16 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brand rounded square -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#000000"/>
+  <!-- Queue: two rows (dot + bar), the active row led by a play triangle,
+       the last bar faded to imply more is queued. -->
+  <g fill="#ffffff">
+    <circle cx="36" cy="40" r="7"/>
+    <rect x="52" y="34" width="46" height="12" rx="6"/>
+
+    <circle cx="36" cy="64" r="7"/>
+    <rect x="52" y="58" width="46" height="12" rx="6"/>
+
+    <path d="M30 80 L30 104 L52 92 Z"/>
+    <rect x="60" y="82" width="38" height="12" rx="6" opacity="0.5"/>
+  </g>
+</svg>

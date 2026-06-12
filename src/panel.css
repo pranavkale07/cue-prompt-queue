@@ -1,0 +1,155 @@
+:host {
+  all: initial;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* The dock is fixed and aligned (left/width/bottom set inline) to sit flush
+   just above the composer. It grows upward from the strip. */
+.dock {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #1f2329;
+  border: 1px solid #e3e3e6;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+  font-size: 13px;
+}
+.dock.hidden { display: none; }
+
+/* Playlist rows (above the strip; hidden when collapsed) */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.dock.collapsed .rows { display: none; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: #f5f5f6;
+  cursor: grab;
+}
+.row:hover { background: #eeeef0; }
+.row.dragging { opacity: 0.4; }
+.row .grip {
+  color: #b0b3b8;
+  font-size: 14px;
+  line-height: 1;
+  cursor: grab;
+  flex: none;
+}
+.row .num {
+  font-variant-numeric: tabular-nums;
+  color: #9aa0a8;
+  font-size: 11px;
+  min-width: 14px;
+  text-align: right;
+  flex: none;
+}
+.row .text {
+  flex: 1;
+  min-width: 0; /* allow the flex item to shrink so ellipsis truncation works */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marker {
+  height: 2px;
+  margin: 1px 6px;
+  background: currentColor;
+  border-radius: 2px;
+  list-style: none;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  font-size: 13px;
+  flex: none;
+}
+.icon-btn:hover { background: #ececef; }
+.icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Always-visible one-line strip (hugs the composer) */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid #ececec;
+}
+.dock.collapsed .strip { border-top: none; }
+.strip:hover { background: #f6f6f7; }
+
+.strip .caret {
+  font-size: 12px;
+  color: #8a9099;
+  flex: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.strip .caret:hover { background: #ececef; }
+.strip .label { font-weight: 600; }
+.strip .label.notice {
+  color: #e5484d;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strip .spacer { flex: 1; }
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c4c7cc;
+  flex: none;
+}
+.dot.generating { background: #1bbf6b; }
+.dot.sending { background: #2b8cff; }
+.dot.waiting { background: #f4b400; }
+.dot.error { background: #e5484d; }
+.dot.paused { background: #c4c7cc; }
+.dot.idle { background: #c4c7cc; }
+
+/* Dark theme — toggled via `.theme-dark` on the dock to match ChatGPT's own
+   theme (not the OS), and placed last so it overrides the light base rules. */
+.dock.theme-dark {
+  background: #2a2a2c;
+  color: #ececec;
+  border-color: #3a3b40;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+.dock.theme-dark .row { background: #343437; }
+.dock.theme-dark .row:hover { background: #3c3c40; }
+.dock.theme-dark .row .num { color: #8a8f98; }
+.dock.theme-dark .icon-btn:hover { background: #44454a; }
+.dock.theme-dark .strip { border-top-color: #3a3b40; }
+.dock.theme-dark .strip:hover { background: #303033; }
