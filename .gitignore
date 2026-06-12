@@ -6,6 +6,7 @@ dist/
 
 # Packaged extension (regenerate with `npm run package`)
 *.zip
+releases/
 
 # Generated store assets (flattened from assets/store/*, regenerate as needed)
 assets/store/upload/

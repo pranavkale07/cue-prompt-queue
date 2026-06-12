@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/generate-icons.mjs",
-    "package": "npm run build && cd dist && zip -r -FS ../prompt-queue-extension.zip . && cd .."
+    "version:print": "node -e \"process.stdout.write(require('./package.json').version)\"",
+    "package": "npm run build && mkdir -p releases && cd dist && zip -r -FS ../releases/cue-prompt-queue-$(npm run version:print --silent)-chrome.zip . && cd .."
   },
   "devDependencies": {
     "@types/chrome": "^0.0.270",
