@@ -66,7 +66,7 @@ npm install
 npm run dev        # vite build --watch -> rebuilds dist/ on change
 npm run build      # typecheck + production build
 npm run typecheck
-npm run package    # build + zip dist/ into prompt-queue-extension.zip
+npm run package    # build + zip dist/ into releases/cue-prompt-queue-<version>-chrome.zip
 ```
 
 ## Project layout
