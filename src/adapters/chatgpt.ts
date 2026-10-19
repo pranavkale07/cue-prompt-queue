@@ -20,6 +20,40 @@ function firstMatch(selectors: string[]): HTMLElement | null {
   return null;
 }
 
+const BLOCK_TAGS = new Set(['P', 'DIV', 'PRE', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI']);
+
+/**
+ * Read the composer's text with line breaks intact. ProseMirror renders each
+ * line as its own <p>, and `textContent` concatenates them with no separator,
+ * so a multi-line prompt would collapse onto one line.
+ */
+function readText(node: Node): string {
+  let out = '';
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      out += child.textContent ?? '';
+    } else if (child instanceof HTMLElement) {
+      if (child.tagName === 'BR') {
+        // ProseMirror adds a placeholder <br> to empty/trailing lines; skip it.
+        if (!child.classList.contains('ProseMirror-trailingBreak')) out += '\n';
+      } else if (BLOCK_TAGS.has(child.tagName)) {
+        if (out && !out.endsWith('\n')) out += '\n';
+        const inner = child.tagName === 'PRE' ? child.textContent ?? '' : readText(child);
+        out += inner;
+        // An empty block is a blank line; otherwise just end the line once.
+        if (inner === '' || !out.endsWith('\n')) out += '\n';
+      } else {
+        out += readText(child);
+      }
+    }
+  }
+  return out;
+}
+
+function collapseWs(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 const EDITOR_SELECTORS = [
   '#prompt-textarea',
   'div[contenteditable="true"][id="prompt-textarea"]',
@@ -63,7 +97,8 @@ export class ChatGptAdapter implements SiteAdapter {
   }
 
   getText(): string {
-    return this.getEditor()?.textContent ?? '';
+    const editor = this.getEditor();
+    return editor ? readText(editor).replace(/\n$/, '') : '';
   }
 
   getActionsContainer(): HTMLElement | null {
@@ -88,8 +123,9 @@ export class ChatGptAdapter implements SiteAdapter {
     document.execCommand('selectAll', false);
     document.execCommand('delete', false);
     const ok = document.execCommand('insertText', false, text);
-    // Verify the text actually landed.
-    return ok && editor.textContent?.trim() === text.trim();
+    // Verify the text actually landed. Compare with whitespace collapsed:
+    // line breaks become paragraphs, which may round-trip as \n or \n\n.
+    return ok && collapseWs(readText(editor)) === collapseWs(text);
   }
 
   clearInput(): void {

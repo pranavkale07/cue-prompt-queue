@@ -187,7 +187,12 @@ export class Dock {
       const grip = el('span', 'grip', '⠿');
       const num = el('span', 'num', String(idx + 1));
       const text = el('span', 'text', item.text);
-      text.title = item.text;
+      text.title = 'Click to expand';
+      text.addEventListener('click', () => {
+        const expanded = text.classList.toggle('expanded');
+        text.title = expanded ? '' : 'Click to expand';
+        li.draggable = !expanded; // allow selecting text in the expanded view
+      });
       const del = el('button', 'icon-btn', '✕') as HTMLButtonElement;
       del.title = 'Remove';
       del.draggable = false;

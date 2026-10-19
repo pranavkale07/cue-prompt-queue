@@ -39,7 +39,7 @@
 
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* keep grip/num/✕ on the first line of multi-line items */
   gap: 8px;
   padding: 7px 8px;
   border-radius: 9px;
@@ -63,12 +63,29 @@
   text-align: right;
   flex: none;
 }
+.row .grip,
+.row .num,
+.row .text { padding-top: 3px; }
+.row .icon-btn { margin: -1px 0; }
+/* Preview up to 3 lines (preserving the prompt's own line breaks); click to
+   expand to the full prompt. */
 .row .text {
   flex: 1;
-  min-width: 0; /* allow the flex item to shrink so ellipsis truncation works */
-  white-space: nowrap;
+  min-width: 0; /* allow the flex item to shrink so long words wrap */
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.row .text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  cursor: text;
+  user-select: text;
 }
 
 .marker {
