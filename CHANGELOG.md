@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Queue items now show up to three lines with their own line breaks instead of
-  a single truncated line. Click an item to expand it to the full prompt.
+  a single truncated line. Click an item to expand it to the full prompt;
+  very long prompts scroll within the item so the rest of the queue stays
+  reachable.
 
 ## [0.1.0] - 2026-06-12
 

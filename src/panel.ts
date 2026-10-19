@@ -188,7 +188,16 @@ export class Dock {
       const num = el('span', 'num', String(idx + 1));
       const text = el('span', 'text', item.text);
       text.title = 'Click to expand';
-      text.addEventListener('click', () => {
+      // A mouseup that ends a text selection also fires `click`; only toggle
+      // when the pointer didn't move, so selecting text doesn't collapse it.
+      let downX = 0;
+      let downY = 0;
+      text.addEventListener('mousedown', (e) => {
+        downX = e.clientX;
+        downY = e.clientY;
+      });
+      text.addEventListener('click', (e) => {
+        if (Math.abs(e.clientX - downX) > 3 || Math.abs(e.clientY - downY) > 3) return;
         const expanded = text.classList.toggle('expanded');
         text.title = expanded ? '' : 'Click to expand';
         li.draggable = !expanded; // allow selecting text in the expanded view

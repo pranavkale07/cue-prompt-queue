@@ -84,6 +84,11 @@
 .row .text.expanded {
   display: block;
   -webkit-line-clamp: unset;
+  /* Very long prompts scroll inside the item rather than pushing the rest of
+     the queue out of reach. */
+  max-height: 24vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   cursor: text;
   user-select: text;
 }
