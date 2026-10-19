@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Multi-line prompts kept their line breaks when queued. Previously the lines
+- Multi-line prompts now keep their line breaks when queued. Previously the lines
   were run together into one (e.g. `point A` / `point B` became
   `point Apoint B`), and that altered text is what got sent.
 - Auto-send no longer stops with "Could not inject prompt text into the
