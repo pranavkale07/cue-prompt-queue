@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Multi-line prompts kept their line breaks when queued. Previously the lines
+  were run together into one (e.g. `point A` / `point B` became
+  `point Apoint B`), and that altered text is what got sent.
+- Auto-send no longer stops with "Could not inject prompt text into the
+  composer" on multi-line prompts.
+
+### Changed
+- Queue items now show up to three lines with their own line breaks instead of
+  a single truncated line. Click an item to expand it to the full prompt.
+
 ## [0.1.0] - 2026-06-12
 
 ### Added
