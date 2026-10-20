@@ -50,15 +50,21 @@ the extension card, then refresh the ChatGPT tab.
 
 All site-specific logic lives in one adapter (`src/adapters/chatgpt.ts`):
 
-| Concern | Mechanism (verified against chatgpt.com) |
+| Concern | Mechanism (verified against chatgpt.com, October 2026) |
 |---|---|
-| Input | `#prompt-textarea` (ProseMirror), filled via `execCommand('insertText')` so React state updates |
-| Submit | click `[data-testid="send-button"]` |
-| "Generating?" | presence of `[data-testid="stop-button"]` |
-| Send confirmed | composer empties after submit |
+| Input | `form[data-chatgpt-composer] .ProseMirror`, filled via `execCommand('insertText')` so React state updates |
+| Submit | click `button[type=submit][aria-label="Send"]` |
+| "Generating?" | presence of `button[aria-label="Stop"]` |
+| Send confirmed | text and attachment chips leave the composer after submit |
+| Attachments | chips in `[data-composer-attachments]`, one `Remove <name>` button each; queued files are re-attached with a synthetic paste |
+| Uploading? | an `Uploading <name>` label on a chip, or Send still disabled |
 | Conversation id | `/c/<uuid>` in the URL |
 
-The engine (`src/engine.ts`) polls generation state every ~600ms and runs the
+Each lookup also tries the older selectors (`#prompt-textarea`,
+`[data-testid="send-button"]`, `[data-testid="stop-button"]`) in case ChatGPT
+still serves the previous composer to some accounts.
+
+The engine (`src/engine.ts`) polls generation state every 250ms and runs the
 queue state machine. Adding another site (e.g. Claude) means implementing the
 `SiteAdapter` interface - nothing else needs to change.
 
