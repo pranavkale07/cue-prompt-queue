@@ -36,10 +36,12 @@
   overflow-y: auto;
 }
 .dock.collapsed .rows { display: none; }
+/* A notice can show with nothing queued; don't leave an empty padded list. */
+.rows:empty { display: none; }
 
 .row {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* keep grip/num/✕ on the first line of multi-line items */
   gap: 8px;
   padding: 7px 8px;
   border-radius: 9px;
@@ -63,12 +65,34 @@
   text-align: right;
   flex: none;
 }
+.row .grip,
+.row .num,
+.row .text { padding-top: 3px; }
+.row .icon-btn { margin: -1px 0; }
+/* Preview up to 3 lines (preserving the prompt's own line breaks); click to
+   expand to the full prompt. */
 .row .text {
   flex: 1;
-  min-width: 0; /* allow the flex item to shrink so ellipsis truncation works */
-  white-space: nowrap;
+  min-width: 0; /* allow the flex item to shrink so long words wrap */
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.row .text.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  /* Very long prompts scroll inside the item rather than pushing the rest of
+     the queue out of reach. */
+  max-height: 24vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  cursor: text;
+  user-select: text;
 }
 
 .marker {
@@ -116,13 +140,14 @@
 }
 .strip .caret:hover { background: #ececef; }
 .strip .label { font-weight: 600; }
+/* Notices can be a full sentence: let them wrap rather than cut off. */
 .strip .label.notice {
-  color: #e5484d;
+  color: #6b7079;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
 }
+.strip .label.notice.severe { color: #e5484d; }
 .strip .spacer { flex: 1; }
 
 .dot {
@@ -136,6 +161,7 @@
 .dot.sending { background: #2b8cff; }
 .dot.waiting { background: #f4b400; }
 .dot.error { background: #e5484d; }
+.dot.held { background: #f4b400; }
 .dot.paused { background: #c4c7cc; }
 .dot.idle { background: #c4c7cc; }
 
@@ -150,6 +176,7 @@
 .dock.theme-dark .row { background: #343437; }
 .dock.theme-dark .row:hover { background: #3c3c40; }
 .dock.theme-dark .row .num { color: #8a8f98; }
+.dock.theme-dark .strip .label.notice:not(.severe) { color: #a9adb5; }
 .dock.theme-dark .icon-btn:hover { background: #44454a; }
 .dock.theme-dark .strip { border-top-color: #3a3b40; }
 .dock.theme-dark .strip:hover { background: #303033; }

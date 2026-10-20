@@ -36,7 +36,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const interceptor = new Interceptor(adapter, queue);
+  const interceptor = new Interceptor(adapter, queue, (msg) => dock.flash(msg));
   interceptor.install();
 
   engine.start();

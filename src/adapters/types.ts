@@ -48,6 +48,13 @@ export interface SiteAdapter {
   isGenerating(): boolean;
 
   /**
+   * True if the composer holds attachments outside the text input: images,
+   * files, or a long paste the site turned into a file. These aren't part of
+   * getText(), so queuing would drop them or send them with the wrong prompt.
+   */
+  hasAttachments(): boolean;
+
+  /**
    * Stable identifier for the current conversation, used to scope the queue.
    * Returns "new" for an unsaved chat that has no id yet.
    */

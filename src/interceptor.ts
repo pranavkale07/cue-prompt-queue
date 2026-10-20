@@ -3,6 +3,8 @@ import type { Queue } from './queue';
 
 const BTN_ID = 'gpt-queue-add-btn';
 const REINJECT_MS = 1000;
+const ATTACHMENT_NOTICE =
+  "Attachments can't be queued. Use \"Show in text field\" for pasted text, or send it directly.";
 
 /**
  * Bridges the host page's native composer to our queue:
@@ -15,6 +17,11 @@ const REINJECT_MS = 1000;
  *  2. An injected "Queue" button in the composer's trailing action area that
  *     adds the current input to the queue in any state — for stacking several
  *     prompts up front. It is re-injected if the site re-renders the composer.
+ *
+ * Attachments (images, files, long pastes turned into files) live outside the
+ * text input, so they can't be queued. Rather than queue only the text and
+ * leave the attachment behind to go out with some other prompt, both paths
+ * refuse and show a notice.
  */
 export class Interceptor {
   private observer: MutationObserver | null = null;
@@ -23,6 +30,7 @@ export class Interceptor {
   constructor(
     private readonly adapter: SiteAdapter,
     private readonly queue: Queue,
+    private readonly notify: (message: string) => void,
   ) {}
 
   install(): void {
@@ -45,21 +53,18 @@ export class Interceptor {
     // Idle → let ChatGPT send normally. Busy → capture into the queue.
     if (!this.adapter.isGenerating()) return;
 
-    const text = this.adapter.getText();
-    if (!text.trim()) {
-      // Nothing to queue; still swallow Enter so it doesn't do anything odd.
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-
+    // Swallow Enter either way: there's nothing for ChatGPT to do with it
+    // while it's generating.
     e.preventDefault();
     e.stopImmediatePropagation();
-    this.queue.add(text);
-    this.adapter.clearInput();
+    this.queueCurrent();
   };
 
   private queueCurrent(): void {
+    if (this.adapter.hasAttachments()) {
+      this.notify(ATTACHMENT_NOTICE);
+      return;
+    }
     const text = this.adapter.getText();
     if (!text.trim()) return;
     this.queue.add(text);
