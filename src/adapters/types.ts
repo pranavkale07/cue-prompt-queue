@@ -1,3 +1,5 @@
+import type { Attachment } from '../attachments';
+
 /**
  * A SiteAdapter encapsulates everything site-specific (selectors, input
  * injection, generation detection) behind a stable interface. The engine and
@@ -53,6 +55,27 @@ export interface SiteAdapter {
    * getText(), so queuing would drop them or send them with the wrong prompt.
    */
   hasAttachments(): boolean;
+
+  /** Names of the composer's attachment chips, in display order. */
+  getAttachmentNames(): string[];
+
+  /** The chip name the site gives `attachment` once it's attached. */
+  attachmentName(attachment: Attachment): string;
+
+  /**
+   * If `target` is a chip's remove control, the chip's name and its index among
+   * chips with that name; otherwise null.
+   */
+  removedAttachment(target: Element): { name: string; index: number } | null;
+
+  /** Attach a local copy to the composer the way a user paste would. */
+  attach(attachment: Attachment): void;
+
+  /** Remove every attachment chip from the composer. */
+  clearAttachments(): void;
+
+  /** True while an attachment is still uploading or being processed. */
+  isUploading(): boolean;
 
   /**
    * Stable identifier for the current conversation, used to scope the queue.

@@ -1,6 +1,10 @@
+import type { Attachment } from './attachments';
+
 export interface QueueItem {
   id: string;
   text: string;
+  /** Chip names of the attachments queued with this prompt. */
+  attachments?: string[];
 }
 
 type Listener = (items: QueueItem[]) => void;
@@ -35,11 +39,17 @@ function storageArea(): chrome.storage.LocalStorageArea | null {
  * Ordered list of pending prompts for a single conversation, mirrored to
  * chrome.storage.local so it survives reloads. The conversation id scopes the
  * stored key; switching conversations loads that conversation's own queue.
+ *
+ * Attachment data (files, long pastes) is kept in memory only, keyed by item
+ * id; storage keeps just their names. After a reload the names remain but the
+ * data is gone, which `attachmentsFor` reports so the item is never sent
+ * without them.
  */
 export class Queue {
   private items: QueueItem[] = [];
   private convId = 'new';
   private listeners = new Set<Listener>();
+  private attachmentData = new Map<string, Attachment[]>();
 
   /** Load the queue for `convId` from storage, replacing current contents. */
   async load(convId: string): Promise<void> {
@@ -80,21 +90,38 @@ export class Queue {
     return this.items[0];
   }
 
-  add(text: string): void {
+  /** `names` are the attachments' chip names, parallel to `attachments`. */
+  add(text: string, attachments: Attachment[] = [], names: string[] = []): void {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    this.items.push({ id: newId(), text: trimmed });
+    if (!trimmed && attachments.length === 0) return;
+    const item: QueueItem = { id: newId(), text: trimmed };
+    if (attachments.length > 0) {
+      item.attachments = names;
+      this.attachmentData.set(item.id, attachments);
+    }
+    this.items.push(item);
     this.commit();
+  }
+
+  /**
+   * The attachments to send with `item`: [] if it has none, null if it had
+   * some but their data is gone (the page was reloaded since it was queued).
+   */
+  attachmentsFor(item: QueueItem): Attachment[] | null {
+    if (!item.attachments?.length) return [];
+    return this.attachmentData.get(item.id) ?? null;
   }
 
   removeById(id: string): void {
     this.items = this.items.filter((it) => it.id !== id);
+    this.attachmentData.delete(id);
     this.commit();
   }
 
   /** Remove and return the head item. */
   shift(): QueueItem | undefined {
     const item = this.items.shift();
+    if (item) this.attachmentData.delete(item.id);
     this.commit();
     return item;
   }
@@ -134,6 +161,7 @@ export class Queue {
   }
 
   clear(): void {
+    for (const it of this.items) this.attachmentData.delete(it.id);
     this.items = [];
     this.commit();
   }

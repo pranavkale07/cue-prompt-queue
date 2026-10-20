@@ -214,7 +214,8 @@ export class Dock {
 
       const grip = el('span', 'grip', '⠿');
       const num = el('span', 'num', String(idx + 1));
-      const text = el('span', 'text', item.text);
+      const text = el('span', 'text', item.text || 'Attachments only');
+      text.classList.toggle('placeholder', !item.text);
       text.title = 'Click to expand';
       // A mouseup that ends a text selection also fires `click`; only toggle
       // when the pointer didn't move, so selecting text doesn't collapse it.
@@ -238,7 +239,13 @@ export class Dock {
       li.addEventListener('dragstart', (e) => this.onDragStart(e, item.id, li));
       li.addEventListener('dragend', () => this.onDragEnd(li));
 
-      li.append(grip, num, text, del);
+      li.append(grip, num, text);
+      if (item.attachments?.length) {
+        const clip = el('span', 'clip', `📎 ${item.attachments.length}`);
+        clip.title = item.attachments.join('\n');
+        li.append(clip);
+      }
+      li.append(del);
       rows.appendChild(li);
     });
   }

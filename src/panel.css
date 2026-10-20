@@ -67,7 +67,8 @@
 }
 .row .grip,
 .row .num,
-.row .text { padding-top: 3px; }
+.row .text,
+.row .clip { padding-top: 3px; }
 .row .icon-btn { margin: -1px 0; }
 /* Preview up to 3 lines (preserving the prompt's own line breaks); click to
    expand to the full prompt. */
@@ -94,6 +95,15 @@
   cursor: text;
   user-select: text;
 }
+/* Attachment count, e.g. "📎 2"; hover lists the names. */
+.row .clip {
+  flex: none;
+  font-size: 11px;
+  color: #6b7079;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.row .text.placeholder { color: #9aa0a8; font-style: italic; }
 
 .marker {
   height: 2px;
@@ -176,6 +186,8 @@
 .dock.theme-dark .row { background: #343437; }
 .dock.theme-dark .row:hover { background: #3c3c40; }
 .dock.theme-dark .row .num { color: #8a8f98; }
+.dock.theme-dark .row .clip { color: #a9adb5; }
+.dock.theme-dark .row .text.placeholder { color: #8a8f98; }
 .dock.theme-dark .strip .label.notice:not(.severe) { color: #a9adb5; }
 .dock.theme-dark .icon-btn:hover { background: #44454a; }
 .dock.theme-dark .strip { border-top-color: #3a3b40; }

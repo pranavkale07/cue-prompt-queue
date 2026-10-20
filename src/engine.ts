@@ -1,5 +1,6 @@
 import type { SiteAdapter } from './adapters/types';
-import type { Queue } from './queue';
+import type { Attachment } from './attachments';
+import type { Queue, QueueItem } from './queue';
 
 export type EngineState =
   | 'idle' // nothing queued, nothing happening
@@ -26,6 +27,8 @@ const SUBMIT_TIMEOUT_MS = 4000;
 const SUBMIT_POLL_MS = 150;
 const SEND_CONFIRM_TIMEOUT_MS = 8000;
 const SEND_CONFIRM_POLL_MS = 150;
+const ATTACH_TIMEOUT_MS = 120000;
+const ATTACH_POLL_MS = 250;
 
 /**
  * Drives the queue: when the page is idle and items are pending, it waits a
@@ -158,30 +161,49 @@ export class Engine {
   /**
    * Reason the composer can't be used for the next send, if any: an attachment
    * would go out with the queued prompt, and text would be overwritten. Text
-   * that already matches the next item (left by a failed send) is fine.
+   * and attachments that already match the next item (left by a failed send)
+   * are fine.
    */
   private composerHold(): string | undefined {
-    if (this.adapter.hasAttachments()) {
+    const next = this.queue.peek();
+    if (this.adapter.hasAttachments() && !(next && this.hasAttachmentsOf(next))) {
       return 'Waiting: send or remove the attachment in the composer.';
     }
     const draft = collapseWs(this.adapter.getText());
-    const next = this.queue.peek();
     if (draft && (!next || draft !== collapseWs(next.text))) {
       return 'Waiting: send or clear your draft in the composer.';
     }
     return undefined;
   }
 
+  /** True if the composer's chips are exactly `item`'s attachments. */
+  private hasAttachmentsOf(item: QueueItem): boolean {
+    const want = item.attachments ?? [];
+    const have = this.adapter.getAttachmentNames();
+    return want.length === have.length && want.every((name, i) => name === have[i]);
+  }
+
   private async sendNext(): Promise<void> {
     const item = this.queue.peek();
     if (!item) return;
+
+    // Never send a prompt without the attachments it was queued with.
+    const attachments = this.queue.attachmentsFor(item);
+    if (attachments === null) {
+      return this.fail('Attachments for the next prompt were lost when the page reloaded. Remove it or queue it again.');
+    }
 
     this.sending = true;
     this.setState('sending');
 
     try {
-      if (!this.adapter.setText(item.text)) {
+      if (!item.text) {
+        this.adapter.clearInput(); // attachments-only prompt
+      } else if (!this.adapter.setText(item.text)) {
         return this.fail('Could not inject prompt text into the composer.');
+      }
+      if (attachments.length > 0 && !(await this.attachAll(item, attachments))) {
+        return this.fail('Attachments never finished uploading, so the prompt was not sent.');
       }
       if (!(await this.deliver(item.text))) {
         return this.fail('Send button never became available.');
@@ -204,6 +226,23 @@ export class Engine {
   }
 
   /**
+   * Re-attach `item`'s attachments (unless a failed send already left them in
+   * the composer) and wait until every chip is there and done uploading.
+   */
+  private async attachAll(item: QueueItem, attachments: Attachment[]): Promise<boolean> {
+    if (!this.hasAttachmentsOf(item)) {
+      this.adapter.clearAttachments();
+      for (const a of attachments) this.adapter.attach(a);
+    }
+    const deadline = Date.now() + ATTACH_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await delay(ATTACH_POLL_MS);
+      if (this.hasAttachmentsOf(item) && !this.adapter.isUploading()) return true;
+    }
+    return false;
+  }
+
+  /**
    * Click send, retrying until it succeeds. Right after a response ends there's
    * a brief window where ChatGPT hasn't mounted an enabled send button yet, so a
    * single attempt is racy. We poll up to SUBMIT_TIMEOUT_MS, re-injecting the
@@ -223,14 +262,16 @@ export class Engine {
   }
 
   /**
-   * A send is confirmed when the composer empties (ChatGPT clears it on submit)
-   * or the model visibly starts generating, whichever comes first.
+   * A send is confirmed when the composer empties (ChatGPT clears the text and
+   * chips on submit) or the model visibly starts generating, whichever comes
+   * first.
    */
   private async confirmSent(): Promise<boolean> {
     const deadline = Date.now() + SEND_CONFIRM_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const editor = this.adapter.getEditor();
-      const empty = (editor?.textContent ?? '').trim() === '';
+      const empty =
+        (editor?.textContent ?? '').trim() === '' && !this.adapter.hasAttachments();
       if (empty || this.adapter.isGenerating()) return true;
       await delay(SEND_CONFIRM_POLL_MS);
     }

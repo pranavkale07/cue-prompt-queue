@@ -1,6 +1,6 @@
 # Privacy Policy - Cue (Prompt Queue for ChatGPT)
 
-_Last updated: 2026-06-12_
+_Last updated: 2026-10-20_
 
 Cue ("the extension") is designed to collect as little as
 possible. In short: **it does not collect, transmit, or sell any of your data.**
@@ -10,8 +10,23 @@ possible. In short: **it does not collect, transmit, or sell any of your data.**
 The extension stores the following **locally on your device only**, using the
 browser's `chrome.storage.local` API:
 
-- The prompts you add to the queue, scoped per conversation.
+- The prompts you add to the queue, scoped per conversation, and the file names
+  of any attachments queued with them.
 - Small UI preferences (e.g. whether the queue panel is collapsed).
+
+### Queued attachments
+
+When you queue a prompt that has attachments (images, files, or a long paste
+ChatGPT turned into a file), the extension keeps a copy of each file **in the
+tab's memory only**, so it can attach them again when the prompt is sent. It
+gets these copies from your own paste, drag-and-drop, or file-picker action in
+ChatGPT's composer. When the queued prompt is sent, it re-attaches them to the
+composer the way a paste would, and ChatGPT uploads them exactly as if you had
+attached them yourself at that moment.
+
+These copies are never written to disk, never sent anywhere by the extension,
+and are discarded when the prompt is sent or removed, or the tab is closed or
+reloaded.
 
 This data never leaves your browser. It is not sent to the developer, to any
 server, or to any third party. There is no analytics, no tracking, and no remote
@@ -21,9 +36,9 @@ code execution.
 
 To do its job, the extension runs only on ChatGPT pages
 (`https://chatgpt.com` and `https://chat.openai.com`). On those pages it reads
-the message composer and the page's generation state in order to queue and send
-your prompts. It does not read your conversation history or transmit page
-content anywhere.
+the message composer, its attachments, and the page's generation state in order
+to queue and send your prompts. It does not read your conversation history or
+transmit page content anywhere.
 
 ## Permissions
 
