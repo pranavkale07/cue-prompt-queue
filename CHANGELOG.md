@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
 ### Added
 - Queue prompts with attachments. Images, files, and long pastes you paste, drop,
   or pick in the composer are queued along with the text, shown as 📎 and a

@@ -18,6 +18,9 @@ cue-capture.txt
 ARCHITECTURE.md
 STORE_LISTING.md
 
+# Private release tooling (Chrome Web Store credentials, upload scripts)
+.local/
+
 # Environment / secrets
 .env
 .env.*
