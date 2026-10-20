@@ -5,6 +5,7 @@ import type { Engine, EngineStatus } from './engine';
 
 const UI_STATE_KEY = 'dock:ui';
 const GAP_PX = 8;
+const FLASH_MS = 6000;
 
 interface UiState {
   collapsed: boolean;
@@ -36,6 +37,9 @@ export class Dock {
   // Notices shown in the strip in place of the count.
   private fatalNotice: string | null = null; // unrecoverable (e.g. composer not found)
   private engineError: string | null = null; // recoverable send error
+  private flashNotice: string | null = null; // short-lived (e.g. "can't queue this")
+  private flashTimer: number | null = null;
+  private holdNotice: string | null = null; // auto-send waiting on the composer
 
   // drag state
   private draggingId: string | null = null;
@@ -103,6 +107,29 @@ export class Dock {
     this.renderStrip();
   }
 
+  /**
+   * Show a short-lived notice, e.g. when something in the composer can't be
+   * queued. Shown even when the queue is empty, then hidden after FLASH_MS.
+   */
+  flash(message: string): void {
+    this.flashNotice = message;
+    if (this.flashTimer !== null) window.clearTimeout(this.flashTimer);
+    this.flashTimer = window.setTimeout(() => {
+      this.flashNotice = null;
+      this.flashTimer = null;
+      this.renderStrip();
+    }, FLASH_MS);
+    this.renderStrip();
+  }
+
+  /** The notice to show in place of the count, most important first. */
+  private currentNotice(): { text: string; severe: boolean } | null {
+    const severe = this.fatalNotice ?? this.engineError ?? this.flashNotice;
+    if (severe !== null) return { text: severe, severe: true };
+    if (this.holdNotice !== null) return { text: this.holdNotice, severe: false };
+    return null;
+  }
+
   private async loadUiState(): Promise<void> {
     const stored = await chrome.storage.local.get(UI_STATE_KEY);
     if (stored[UI_STATE_KEY]) {
@@ -160,15 +187,16 @@ export class Dock {
   }
 
   /**
-   * Update the strip label + dock visibility. A notice (fatal or engine error)
-   * takes the label's place; otherwise it shows the queue count. The dock stays
-   * visible whenever there's something to show.
+   * Update the strip label + dock visibility. A notice (fatal, engine error,
+   * flash or hold) takes the label's place; otherwise it shows the queue count.
+   * The dock stays visible whenever there's something to show.
    */
   private renderStrip(): void {
     const { dock, label } = this.els;
-    const notice = this.fatalNotice ?? this.engineError;
-    label.textContent = notice ?? (this.items.length ? `Queued · ${this.items.length}` : 'Queued');
+    const notice = this.currentNotice();
+    label.textContent = notice?.text ?? (this.items.length ? `Queued · ${this.items.length}` : 'Queued');
     label.classList.toggle('notice', notice !== null);
+    label.classList.toggle('severe', notice?.severe ?? false);
 
     const empty = this.items.length === 0 && notice === null;
     dock.classList.toggle('hidden', empty);
@@ -221,6 +249,7 @@ export class Dock {
     playBtn.textContent = status.running ? '⏸' : '▶';
     playBtn.title = status.running ? 'Pause auto-send' : 'Resume auto-send';
     this.engineError = status.state === 'error' && status.error ? `⚠ ${status.error}` : null;
+    this.holdNotice = status.state === 'held' && status.hold ? status.hold : null;
     this.renderStrip();
   }
 
@@ -269,7 +298,7 @@ export class Dock {
   // ---- Positioning ---------------------------------------------------------
 
   private reposition = (): void => {
-    if (this.items.length === 0 && this.fatalNotice === null && this.engineError === null) return;
+    if (this.items.length === 0 && this.currentNotice() === null) return;
     const anchor = this.adapter.getComposerAnchor();
     if (!anchor) {
       this.els.dock.classList.add('hidden');

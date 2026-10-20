@@ -3,13 +3,18 @@ import type { SiteAdapter } from './types';
 /**
  * ChatGPT (chatgpt.com / chat.openai.com) adapter.
  *
- * Selectors verified live against chatgpt.com (June 2026):
- *  - Composer:  #prompt-textarea  (a ProseMirror contenteditable <div>)
- *  - Send:      [data-testid="send-button"] / #composer-submit-button  (aria-label "Send prompt")
- *  - Generating:[data-testid="stop-button"]  (aria-label "Stop answering")
+ * Selectors verified live against chatgpt.com (October 2026 composer redesign):
+ *  - Composer:    form[data-chatgpt-composer] .ProseMirror  (no id any more)
+ *  - Send:        button[type=submit][aria-label="Send"]
+ *  - Generating:  button[aria-label="Stop"]
+ *  - Attachments: [data-composer-attachments], one "Remove <name>" button per chip
  *
- * Each lookup has layered fallbacks (testid → id → aria-label) so minor UI
- * changes degrade gracefully instead of breaking outright.
+ * The June 2026 selectors (#prompt-textarea, send-button / stop-button testids,
+ * the grid-area:trailing slot) are kept first in each list in case ChatGPT
+ * rolls back or still serves the old composer to some accounts.
+ *
+ * Each lookup has layered fallbacks (testid → id → data attribute → aria-label)
+ * so minor UI changes degrade gracefully instead of breaking outright.
  */
 
 function firstMatch(selectors: string[]): HTMLElement | null {
@@ -56,7 +61,7 @@ function collapseWs(s: string): string {
 
 const EDITOR_SELECTORS = [
   '#prompt-textarea',
-  'div[contenteditable="true"][id="prompt-textarea"]',
+  'form[data-chatgpt-composer] .ProseMirror[contenteditable="true"]',
   'main form div[contenteditable="true"]',
 ];
 
@@ -64,24 +69,42 @@ const SEND_SELECTORS = [
   '[data-testid="send-button"]',
   '#composer-submit-button',
   'button[aria-label="Send prompt"]',
+  'form[data-chatgpt-composer] button[type="submit"][aria-label="Send"]',
+  'form button[aria-label="Send"]',
 ];
 
 const STOP_SELECTORS = [
   '[data-testid="stop-button"]',
   'button[aria-label="Stop answering"]',
-  'button[aria-label*="Stop" i]',
+  'form button[aria-label="Stop"]',
+  'form button[aria-label*="Stop" i]',
 ];
 
-// The composer is a named CSS grid; the trailing area holds the dictation/voice
+// Old composer: a named CSS grid whose trailing area holds the dictation/voice
 // and send/stop buttons and stays mounted across state changes.
 const TRAILING_SELECTORS = [
   'form div[class*="grid-area:trailing"]',
   'div[class*="grid-area:trailing"]',
 ];
 
+// New composer: the footer's last column holds Think / Dictate / Send. Its
+// first flex row is where those buttons sit side by side.
+const FOOTER_SELECTORS = [
+  'form[data-chatgpt-composer] [data-composer-footer-responsive]',
+  '[data-composer-footer-responsive]',
+];
+
 // The composer <form> — matches the visible rounded input box's width/position.
 const ANCHOR_SELECTORS = [
+  'form[data-chatgpt-composer]',
   'form[class*="composer"]',
+];
+
+// Pasted-text chips (long pastes), images and files all render here, each with
+// a "Remove <name>" button. The container stays mounted when empty.
+const ATTACHMENT_SELECTORS = [
+  '[data-composer-attachments] button[aria-label^="Remove" i]',
+  '[data-composer-attachments][data-visible-attachments]',
 ];
 
 export class ChatGptAdapter implements SiteAdapter {
@@ -102,7 +125,15 @@ export class ChatGptAdapter implements SiteAdapter {
   }
 
   getActionsContainer(): HTMLElement | null {
-    return firstMatch(TRAILING_SELECTORS);
+    const trailing = firstMatch(TRAILING_SELECTORS);
+    if (trailing) return trailing;
+    const column = firstMatch(FOOTER_SELECTORS)?.lastElementChild;
+    if (!column) return null;
+    // Skip `display: contents` wrappers to reach the row the buttons sit in.
+    for (const div of column.querySelectorAll<HTMLElement>('div')) {
+      if (getComputedStyle(div).display === 'flex') return div;
+    }
+    return null;
   }
 
   getComposerAnchor(): HTMLElement | null {
@@ -147,6 +178,10 @@ export class ChatGptAdapter implements SiteAdapter {
     return firstMatch(STOP_SELECTORS) !== null;
   }
 
+  hasAttachments(): boolean {
+    return firstMatch(ATTACHMENT_SELECTORS) !== null;
+  }
+
   getConversationId(): string {
     const m = location.pathname.match(/\/c\/([0-9a-fA-F-]+)/);
     return m ? m[1] : 'new';
@@ -155,7 +190,7 @@ export class ChatGptAdapter implements SiteAdapter {
   selfCheck(): Record<string, boolean> {
     return {
       editor: firstMatch(EDITOR_SELECTORS) !== null,
-      actionsContainer: firstMatch(TRAILING_SELECTORS) !== null,
+      actionsContainer: this.getActionsContainer() !== null,
       composerAnchor: this.getComposerAnchor() !== null,
     };
   }

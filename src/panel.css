@@ -36,6 +36,8 @@
   overflow-y: auto;
 }
 .dock.collapsed .rows { display: none; }
+/* A notice can show with nothing queued; don't leave an empty padded list. */
+.rows:empty { display: none; }
 
 .row {
   display: flex;
@@ -138,13 +140,14 @@
 }
 .strip .caret:hover { background: #ececef; }
 .strip .label { font-weight: 600; }
+/* Notices can be a full sentence: let them wrap rather than cut off. */
 .strip .label.notice {
-  color: #e5484d;
+  color: #6b7079;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
 }
+.strip .label.notice.severe { color: #e5484d; }
 .strip .spacer { flex: 1; }
 
 .dot {
@@ -158,6 +161,7 @@
 .dot.sending { background: #2b8cff; }
 .dot.waiting { background: #f4b400; }
 .dot.error { background: #e5484d; }
+.dot.held { background: #f4b400; }
 .dot.paused { background: #c4c7cc; }
 .dot.idle { background: #c4c7cc; }
 
@@ -172,6 +176,7 @@
 .dock.theme-dark .row { background: #343437; }
 .dock.theme-dark .row:hover { background: #3c3c40; }
 .dock.theme-dark .row .num { color: #8a8f98; }
+.dock.theme-dark .strip .label.notice:not(.severe) { color: #a9adb5; }
 .dock.theme-dark .icon-btn:hover { background: #44454a; }
 .dock.theme-dark .strip { border-top-color: #3a3b40; }
 .dock.theme-dark .strip:hover { background: #303033; }

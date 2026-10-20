@@ -7,6 +7,7 @@ export type EngineState =
   | 'sending' // injecting + submitting a prompt
   | 'generating' // model is responding
   | 'paused' // auto-send turned off by the user
+  | 'held' // the composer has the user's own draft/attachment; waiting for it to clear
   | 'error'; // last send failed; auto-send halted
 
 export interface EngineStatus {
@@ -14,6 +15,8 @@ export interface EngineStatus {
   running: boolean;
   delayMs: number;
   error?: string;
+  /** Why auto-send is held (state 'held'). */
+  hold?: string;
 }
 
 type StatusListener = (status: EngineStatus) => void;
@@ -35,6 +38,7 @@ export class Engine {
   private state: EngineState = 'idle';
   private delayMs = 400;
   private error?: string;
+  private hold?: string;
 
   private timer: number | null = null;
   private sending = false;
@@ -89,12 +93,14 @@ export class Engine {
       running: this.running,
       delayMs: this.delayMs,
       error: this.error,
+      hold: this.hold,
     };
   }
 
-  private setState(state: EngineState): void {
-    if (this.state === state) return;
+  private setState(state: EngineState, hold?: string): void {
+    if (this.state === state && this.hold === hold) return;
     this.state = state;
+    this.hold = hold;
     this.emit();
   }
 
@@ -138,7 +144,32 @@ export class Engine {
       return;
     }
 
+    // Sending replaces the composer's content, so never do it over something
+    // the user put there. Resumes on its own once the composer is clear.
+    const hold = this.composerHold();
+    if (hold) {
+      this.setState('held', hold);
+      return;
+    }
+
     await this.sendNext();
+  }
+
+  /**
+   * Reason the composer can't be used for the next send, if any: an attachment
+   * would go out with the queued prompt, and text would be overwritten. Text
+   * that already matches the next item (left by a failed send) is fine.
+   */
+  private composerHold(): string | undefined {
+    if (this.adapter.hasAttachments()) {
+      return 'Waiting: send or remove the attachment in the composer.';
+    }
+    const draft = collapseWs(this.adapter.getText());
+    const next = this.queue.peek();
+    if (draft && (!next || draft !== collapseWs(next.text))) {
+      return 'Waiting: send or clear your draft in the composer.';
+    }
+    return undefined;
   }
 
   private async sendNext(): Promise<void> {
@@ -181,7 +212,7 @@ export class Engine {
   private async deliver(text: string): Promise<boolean> {
     const deadline = Date.now() + SUBMIT_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      if (this.adapter.getText().trim() !== text.trim()) {
+      if (collapseWs(this.adapter.getText()) !== collapseWs(text)) {
         this.adapter.setText(text);
         await delay(60);
       }
@@ -211,6 +242,10 @@ export class Engine {
     this.running = false;
     this.setState('error');
   }
+}
+
+function collapseWs(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
 }
 
 function delay(ms: number): Promise<void> {

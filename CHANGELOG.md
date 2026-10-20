@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Works with ChatGPT's redesigned composer (October 2026). Auto-send had stopped
+  with "Send button never became available", and the Queue button no longer
+  appeared, because the send/stop buttons and the composer layout changed.
+- Pressing Enter (or the Queue button) with an image, file, or long paste in the
+  composer no longer queues just the text. ChatGPT turns pastes of 10,000+
+  characters into a `pasted.txt` attachment; before, the attachment stayed
+  behind and went out with whichever prompt was sent next, or Enter silently
+  did nothing. Cue now leaves the composer as it is and explains why.
+- Auto-send no longer overwrites what you're typing. If the composer has your
+  own draft or an attachment when a response finishes, Cue waits and says so,
+  then sends the next prompt once the composer is clear.
 - Multi-line prompts now keep their line breaks when queued. Previously the lines
   were run together into one (e.g. `point A` / `point B` became
   `point Apoint B`), and that altered text is what got sent.
