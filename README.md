@@ -4,7 +4,7 @@
 
 # Cue - Prompt Queue for ChatGPT
 
-[![Version](https://img.shields.io/badge/version-0.1.0-black)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.2.0-black)](CHANGELOG.md)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -23,6 +23,9 @@ manually.**
 - A **playlist-style dock** sits just above the composer, shown only while the
   queue is non-empty. Drag rows to reorder, delete individually, or collapse the
   list to a one-line strip. Shadow-DOM isolated from the site's CSS.
+- **Attachments queue too.** Images, files, and long pastes you paste, drop, or
+  pick are queued with the prompt and attached again when it's sent (kept in
+  the tab's memory only, so they don't survive a page reload).
 - Auto-sends the next prompt a short delay after ChatGPT goes idle.
 - Per-conversation queues, persisted in `chrome.storage` (survive reloads). A
   queue started in a brand-new chat carries over once the conversation gets a
