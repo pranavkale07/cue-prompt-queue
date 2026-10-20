@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Queue prompts with attachments. Images, files, and long pastes you paste, drop,
+  or pick in the composer are queued along with the text, shown as 📎 and a
+  count on the queue item (hover for the names), and attached again when the
+  prompt is sent. Cue waits for the uploads to finish before sending. Prompts
+  with only attachments and no text can be queued too.
+- Queued attachments are kept in the tab's memory, so they don't survive a page
+  reload (the text does). If that happens, auto-send stops with a notice
+  instead of sending the prompt without its attachments.
+
 ### Fixed
 - Works with ChatGPT's redesigned composer (October 2026). Auto-send had stopped
   with "Send button never became available", and the Queue button no longer
@@ -15,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   composer no longer queues just the text. ChatGPT turns pastes of 10,000+
   characters into a `pasted.txt` attachment; before, the attachment stayed
   behind and went out with whichever prompt was sent next, or Enter silently
-  did nothing. Cue now leaves the composer as it is and explains why.
+  did nothing. Attachments are now queued with the prompt; ones Cue can't
+  copy (e.g. files added from Google Drive or your ChatGPT library) leave the
+  composer as it is, with a notice explaining why.
 - Auto-send no longer overwrites what you're typing. If the composer has your
   own draft or an attachment when a response finishes, Cue waits and says so,
   then sends the next prompt once the composer is clear.

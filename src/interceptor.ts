@@ -1,10 +1,12 @@
 import type { SiteAdapter } from './adapters/types';
+import type { AttachmentTracker } from './attachments';
 import type { Queue } from './queue';
 
 const BTN_ID = 'gpt-queue-add-btn';
 const REINJECT_MS = 1000;
 const ATTACHMENT_NOTICE =
-  "Attachments can't be queued. Use \"Show in text field\" for pasted text, or send it directly.";
+  "This attachment can't be queued (Cue only queues files you paste, drop or pick). Send it directly.";
+const UPLOADING_NOTICE = 'Wait for the attachment to finish uploading, then queue.';
 
 /**
  * Bridges the host page's native composer to our queue:
@@ -19,9 +21,10 @@ const ATTACHMENT_NOTICE =
  *     prompts up front. It is re-injected if the site re-renders the composer.
  *
  * Attachments (images, files, long pastes turned into files) live outside the
- * text input, so they can't be queued. Rather than queue only the text and
- * leave the attachment behind to go out with some other prompt, both paths
- * refuse and show a notice.
+ * text input. They're queued from the local copies the AttachmentTracker kept
+ * when the user added them. If any chip has no copy (e.g. a Google Drive file),
+ * both paths refuse and show a notice rather than queue only the text and leave
+ * the attachment behind to go out with some other prompt.
  */
 export class Interceptor {
   private observer: MutationObserver | null = null;
@@ -30,6 +33,7 @@ export class Interceptor {
   constructor(
     private readonly adapter: SiteAdapter,
     private readonly queue: Queue,
+    private readonly attachments: AttachmentTracker,
     private readonly notify: (message: string) => void,
   ) {}
 
@@ -61,14 +65,22 @@ export class Interceptor {
   };
 
   private queueCurrent(): void {
-    if (this.adapter.hasAttachments()) {
+    // Removing a half-uploaded chip mid-upload is racy; let it settle first.
+    if (this.adapter.isUploading()) {
+      this.notify(UPLOADING_NOTICE);
+      return;
+    }
+    const attachments = this.attachments.take();
+    if (attachments === null) {
       this.notify(ATTACHMENT_NOTICE);
       return;
     }
     const text = this.adapter.getText();
-    if (!text.trim()) return;
-    this.queue.add(text);
+    if (!text.trim() && attachments.length === 0) return;
+    const names = attachments.map((a) => this.adapter.attachmentName(a));
+    this.queue.add(text, attachments, names);
     this.adapter.clearInput();
+    this.adapter.clearAttachments();
   }
 
   private ensureButton(): void {

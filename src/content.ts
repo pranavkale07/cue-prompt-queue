@@ -3,6 +3,7 @@ import { Queue } from './queue';
 import { Engine } from './engine';
 import { Dock } from './panel';
 import { Interceptor } from './interceptor';
+import { AttachmentTracker } from './attachments';
 import { loadSettings, onSettingsChanged } from './settings';
 
 const CONV_WATCH_MS = 700;
@@ -36,7 +37,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const interceptor = new Interceptor(adapter, queue, (msg) => dock.flash(msg));
+  const attachments = new AttachmentTracker(adapter);
+  attachments.install();
+
+  const interceptor = new Interceptor(adapter, queue, attachments, (msg) => dock.flash(msg));
   interceptor.install();
 
   engine.start();

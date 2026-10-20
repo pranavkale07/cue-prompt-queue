@@ -1,3 +1,4 @@
+import type { Attachment } from '../attachments';
 import type { SiteAdapter } from './types';
 
 /**
@@ -8,6 +9,8 @@ import type { SiteAdapter } from './types';
  *  - Send:        button[type=submit][aria-label="Send"]
  *  - Generating:  button[aria-label="Stop"]
  *  - Attachments: [data-composer-attachments], one "Remove <name>" button per chip
+ *                 (<name> is the File's name verbatim; duplicates allowed), and
+ *                 an "Uploading <name>" label while that chip uploads
  *
  * The June 2026 selectors (#prompt-textarea, send-button / stop-button testids,
  * the grid-area:trailing slot) are kept first in each list in case ChatGPT
@@ -107,6 +110,11 @@ const ATTACHMENT_SELECTORS = [
   '[data-composer-attachments][data-visible-attachments]',
 ];
 
+const CHIP_REMOVE_SELECTOR = '[data-composer-attachments] button[aria-label^="Remove "]';
+
+// A long paste becomes a chip with this name instead of inline text.
+const PASTED_TEXT_NAME = 'pasted text attachment';
+
 export class ChatGptAdapter implements SiteAdapter {
   readonly name = 'chatgpt';
 
@@ -182,6 +190,52 @@ export class ChatGptAdapter implements SiteAdapter {
     return firstMatch(ATTACHMENT_SELECTORS) !== null;
   }
 
+  getAttachmentNames(): string[] {
+    return [...document.querySelectorAll(CHIP_REMOVE_SELECTOR)].map(chipName);
+  }
+
+  attachmentName(attachment: Attachment): string {
+    return attachment.kind === 'text' ? PASTED_TEXT_NAME : attachment.file.name;
+  }
+
+  removedAttachment(target: Element): { name: string; index: number } | null {
+    const btn = target.closest(CHIP_REMOVE_SELECTOR);
+    if (!btn) return null;
+    const name = chipName(btn);
+    const same = [...document.querySelectorAll(CHIP_REMOVE_SELECTOR)].filter((b) => chipName(b) === name);
+    return { name, index: same.indexOf(btn) };
+  }
+
+  attach(attachment: Attachment): void {
+    const editor = this.getEditor();
+    if (!editor) return;
+    editor.focus();
+    // A paste is the one path that works for both files and long text, and
+    // ChatGPT handles it exactly like the user pasting: chip, upload, send.
+    const data = new DataTransfer();
+    if (attachment.kind === 'file') data.items.add(attachment.file);
+    else data.setData('text/plain', attachment.text);
+    editor.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }
+
+  clearAttachments(): void {
+    document.querySelectorAll<HTMLButtonElement>(CHIP_REMOVE_SELECTOR).forEach((b) => b.click());
+  }
+
+  isUploading(): boolean {
+    const box = document.querySelector('[data-composer-attachments]');
+    if (!box) return false;
+    const busy = [...box.querySelectorAll('[aria-label]')].some((el) =>
+      /^Uploading /i.test(el.getAttribute('aria-label') ?? ''),
+    );
+    if (busy || /Adding pasted text/i.test(box.textContent ?? '')) return true;
+    // Send stays disabled for a moment after the last "Uploading" label goes.
+    const send = firstMatch(SEND_SELECTORS) as HTMLButtonElement | null;
+    return this.getAttachmentNames().length > 0 && !!send?.disabled;
+  }
+
   getConversationId(): string {
     const m = location.pathname.match(/\/c\/([0-9a-fA-F-]+)/);
     return m ? m[1] : 'new';
@@ -194,4 +248,8 @@ export class ChatGptAdapter implements SiteAdapter {
       composerAnchor: this.getComposerAnchor() !== null,
     };
   }
+}
+
+function chipName(removeButton: Element): string {
+  return (removeButton.getAttribute('aria-label') ?? '').replace(/^Remove /, '');
 }
