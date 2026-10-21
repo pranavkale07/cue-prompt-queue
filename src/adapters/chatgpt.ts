@@ -139,8 +139,15 @@ const ERROR_TEXT = [
 ];
 // Text that is conversation content, not site UI: replies, user messages and
 // the composer. Errors are never looked for in here.
-const CONTENT_SELECTOR = '.markdown, [data-message-author-role="user"], [contenteditable="true"]';
-const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
+// Older layout first; current ChatGPT renders replies in [data-dil-message-id]
+// and user messages in [data-user-message-bubble].
+const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"], [data-user-message-bubble]';
+const CONTENT_SELECTOR = [
+  '.markdown',
+  '[data-dil-message-id]',
+  USER_MESSAGE_SELECTOR,
+  '[contenteditable="true"]',
+].join(', ');
 const MAX_ERROR_LENGTH = 160;
 
 export class ChatGptAdapter implements SiteAdapter {
