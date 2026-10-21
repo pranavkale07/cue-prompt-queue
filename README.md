@@ -4,7 +4,7 @@
 
 # Cue - Prompt Queue for ChatGPT
 
-[![Version](https://img.shields.io/badge/version-0.2.0-black)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-black)](CHANGELOG.md)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
