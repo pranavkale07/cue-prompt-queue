@@ -3,15 +3,17 @@
 //
 // NOTE: SETTINGS_KEY and DEFAULTS mirror src/settings.ts. Keep them in sync.
 const SETTINGS_KEY = 'settings';
-const DEFAULTS = { autoSendDelayMs: 400, startPaused: false };
+const DEFAULTS = { autoSendDelayMs: 400, startPaused: false, enterToQueue: true };
 
 const delayEl = document.getElementById('delay');
 const startPausedEl = document.getElementById('startPaused');
+const enterToQueueEl = document.getElementById('enterToQueue');
 const savedEl = document.getElementById('saved');
 
 function fill(settings) {
   delayEl.value = String(settings.autoSendDelayMs / 1000);
   startPausedEl.checked = Boolean(settings.startPaused);
+  enterToQueueEl.checked = Boolean(settings.enterToQueue);
 }
 
 function readForm() {
@@ -20,6 +22,7 @@ function readForm() {
   return {
     autoSendDelayMs: Math.round(safeSeconds * 1000),
     startPaused: startPausedEl.checked,
+    enterToQueue: enterToQueueEl.checked,
   };
 }
 

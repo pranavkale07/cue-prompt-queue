@@ -49,6 +49,19 @@ export interface SiteAdapter {
   /** True while the model is generating a response. */
   isGenerating(): boolean;
 
+  /** True if `target` is (inside) the site's stop-generating control. */
+  isStopControl(target: Element): boolean;
+
+  /** True if `target` is (inside) the site's send control. */
+  isSendControl(target: Element): boolean;
+
+  /**
+   * The text of an error the site shows for the latest turn (a failed reply,
+   * a usage limit), or null if the latest reply looks fine. Errors shown
+   * before the latest user message are ignored.
+   */
+  responseError(): string | null;
+
   /**
    * True if the composer holds attachments outside the text input: images,
    * files, or a long paste the site turned into a file. These aren't part of

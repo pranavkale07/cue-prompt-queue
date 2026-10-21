@@ -38,8 +38,11 @@ Be respectful and constructive. Report unacceptable behavior to the maintainer.
    git checkout -b feature/your-feature-name
    ```
 2. Make your changes. `npm run dev` keeps `dist/` rebuilding on save.
-3. Test the full flow on https://chatgpt.com: queue several prompts mid-reply,
-   confirm auto-send, reorder, delete, pause/resume, and reload persistence.
+3. Run the end-to-end tests (`npm run build && npm run test:e2e`; the first
+   time, `npx playwright install chromium`). They use a mock ChatGPT page, so
+   also test the full flow on https://chatgpt.com: queue several prompts
+   mid-reply, confirm auto-send, reorder, delete, pause/resume, and reload
+   persistence.
 4. Keep the type checker clean:
    ```bash
    npm run typecheck

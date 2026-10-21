@@ -1,3 +1,5 @@
+import { onLocalChanged, storageArea } from './storage';
+
 /**
  * User-configurable settings, persisted in chrome.storage.local under a single
  * key. The toolbar popup (public/popup.js) writes this same key; the content
@@ -12,6 +14,11 @@ export interface Settings {
   autoSendDelayMs: number;
   /** Start with auto-send paused on every page load. */
   startPaused: boolean;
+  /**
+   * Pressing Enter while ChatGPT is generating queues the prompt. Off: Enter
+   * is left to ChatGPT (useful if Enter inserts a new line for you).
+   */
+  enterToQueue: boolean;
 }
 
 export const SETTINGS_KEY = 'settings';
@@ -19,17 +26,19 @@ export const SETTINGS_KEY = 'settings';
 export const DEFAULT_SETTINGS: Settings = {
   autoSendDelayMs: 400,
   startPaused: false,
+  enterToQueue: true,
 };
 
 export async function loadSettings(): Promise<Settings> {
-  const stored = await chrome.storage.local.get(SETTINGS_KEY);
+  const area = storageArea();
+  const stored = area ? await area.get(SETTINGS_KEY) : {};
   return merge(stored[SETTINGS_KEY] as Partial<Settings> | undefined);
 }
 
 /** Invoke `fn` whenever the settings change in another context (e.g. the popup). */
 export function onSettingsChanged(fn: (settings: Settings) => void): void {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes[SETTINGS_KEY]) return;
+  onLocalChanged((changes) => {
+    if (!changes[SETTINGS_KEY]) return;
     fn(merge(changes[SETTINGS_KEY].newValue as Partial<Settings> | undefined));
   });
 }

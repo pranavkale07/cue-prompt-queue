@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ChatGPT (mock)</title>
+<!--
+  A stand-in for chatgpt.com, served at https://chatgpt.com/* by the e2e
+  runner. It copies only the DOM contract src/adapters/chatgpt.ts depends on
+  (October 2026 composer):
+    form[data-chatgpt-composer] .ProseMirror[contenteditable]
+    button[type=submit][aria-label="Send"] / button[aria-label="Stop"]
+    [data-composer-footer-responsive] (last column holds the buttons row)
+    [data-composer-attachments] with "Remove <name>" / "Uploading <name>"
+    /c/<uuid> URLs, client-side navigation
+  Error rendering (red banner after the last turn) is a guess at ChatGPT's
+  markup, not verified against the live site.
+
+  Every user message "sent" is appended to localStorage.mockSent (shared by
+  all tabs) so tests can count sends per conversation.
+-->
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; display: flex; height: 100vh; color: #0d0d0d; }
+  nav { width: 200px; background: #f9f9f9; padding: 12px; border-right: 1px solid #eee; }
+  nav a { display: block; padding: 8px; color: inherit; text-decoration: none; border-radius: 8px; }
+  nav a:hover, nav a.active { background: #ececec; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  #thread { flex: 1; overflow-y: auto; width: 100%; max-width: 720px; padding: 16px; box-sizing: border-box; }
+  .msg { margin: 10px 0; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; }
+  [data-message-author-role="user"] { background: #f1f1f1; margin-left: 30%; }
+  [data-message-author-role="assistant"] { background: transparent; }
+  .error-banner { border: 1px solid #ef4444; background: #fef2f2; color: #b91c1c; padding: 10px; border-radius: 8px; margin: 10px 0; }
+  form { width: 100%; max-width: 720px; margin: 0 16px 28px; border: 1px solid #ddd; border-radius: 28px; padding: 10px 14px; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .ProseMirror { min-height: 24px; outline: none; padding: 6px 4px; white-space: pre-wrap; }
+  .ProseMirror:empty::before { content: 'Ask anything'; color: #999; }
+  [data-composer-footer-responsive] { display: flex; justify-content: space-between; align-items: center; }
+  .btnrow { display: flex; gap: 6px; align-items: center; }
+  button[aria-label="Send"], button[aria-label="Stop"] { width: 36px; height: 36px; border-radius: 50%; border: none; background: #0d0d0d; color: #fff; cursor: pointer; }
+  button[aria-label="Send"]:disabled { background: #d7d7d7; cursor: default; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid #ddd; border-radius: 10px; padding: 4px 8px; margin: 0 6px 6px 0; font-size: 12px; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/" data-nav>New chat</a>
+  <a href="/c/aaaaaaaa-0000-4000-8000-000000000001" data-nav>Chat A</a>
+  <a href="/c/bbbbbbbb-0000-4000-8000-000000000002" data-nav>Chat B</a>
+</nav>
+<main>
+  <div id="thread"></div>
+  <form data-chatgpt-composer>
+    <div data-composer-attachments></div>
+    <div class="ProseMirror" contenteditable="true"></div>
+    <div data-composer-footer-responsive>
+      <div class="lead"><button type="button" aria-label="Add files">＋</button></div>
+      <div class="trail"><div class="btnrow"><button type="submit" aria-label="Send" disabled>↑</button></div></div>
+    </div>
+  </form>
+</main>
+<script>
+(() => {
+  const mock = (window.mock = {
+    responseMs: 2000,  // how long each reply "generates"
+    nextError: null,   // set to a string to make the next reply fail with it
+    plainError: false, // render that error as unstyled text instead of a red banner
+    uploadMs: 400,
+    stopDelayMs: 0,    // delay before the Stop button shows after a send
+  });
+  const thread = document.getElementById('thread');
+  const form = document.querySelector('form');
+  const editor = document.querySelector('.ProseMirror');
+  const chips = document.querySelector('[data-composer-attachments]');
+  const row = document.querySelector('.btnrow');
+  let btn = row.querySelector('button');
+  let generating = null;
+
+  const convId = () => (location.pathname.match(/\/c\/([0-9a-f-]+)/) || [])[1] || 'new';
+  const load = (k) => JSON.parse(localStorage.getItem(k) || '[]');
+  const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  function chipNames() {
+    return [...chips.querySelectorAll('button[aria-label^="Remove "]')].map((b) => b.getAttribute('aria-label').slice(7));
+  }
+  function uploading() { return !!chips.querySelector('[aria-label^="Uploading "]'); }
+  function hasContent() { return editor.textContent.trim() !== '' || chipNames().length > 0; }
+  function refreshSend() {
+    if (btn.getAttribute('aria-label') === 'Send') btn.disabled = !hasContent() || uploading();
+  }
+
+  function setButton(kind) {
+    const b = document.createElement('button');
+    if (kind === 'stop') {
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Stop');
+      b.textContent = '■';
+      b.addEventListener('click', () => finish(true));
+    } else {
+      b.type = 'submit';
+      b.setAttribute('aria-label', 'Send');
+      b.textContent = '↑';
+    }
+    btn.replaceWith(b);
+    btn = b;
+    refreshSend();
+  }
+
+  function addMsg(role, text, cls) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + (cls || '');
+    if (role) d.dataset.messageAuthorRole = role;
+    if (role === 'assistant') {
+      const md = document.createElement('div');
+      md.className = 'markdown';
+      md.textContent = text;
+      d.appendChild(md);
+    } else {
+      d.textContent = text;
+    }
+    thread.appendChild(d);
+    thread.scrollTop = thread.scrollHeight;
+    return d;
+  }
+
+  function finish(stopped) {
+    if (!generating) return;
+    clearTimeout(generating.timer);
+    const { text, error } = generating;
+    generating = null;
+    if (error) {
+      const e = document.createElement('div');
+      e.className = mock.plainError ? 'msg' : 'error-banner text-token-text-error border-red-500';
+      e.textContent = error;
+      thread.appendChild(e);
+    } else {
+      addMsg('assistant', stopped ? '(stopped)' : 'Answer to: ' + text);
+    }
+    setButton('send');
+  }
+
+  function send() {
+    if (generating || !hasContent() || uploading()) return;
+    const text = editor.innerText.replace(/\n$/, '');
+    const names = chipNames();
+    const sent = load('mockSent');
+    sent.push({ conv: convId(), text, attachments: names, at: Date.now() });
+    save('mockSent', sent);
+    addMsg('user', text + (names.length ? '  📎 ' + names.join(', ') : ''));
+    editor.innerHTML = '';
+    chips.innerHTML = '';
+    const error = mock.nextError;
+    mock.nextError = null;
+    const lag = mock.stopDelayMs;
+    generating = { text, error, timer: setTimeout(() => finish(false), lag + (error ? 300 : mock.responseMs)) };
+    if (lag) {
+      btn.disabled = true;
+      setTimeout(() => generating && setButton('stop'), lag);
+    } else {
+      setButton('stop');
+    }
+    if (convId() === 'new') {
+      const id = crypto.randomUUID();
+      setTimeout(() => history.pushState({}, '', '/c/' + id), 250);
+    }
+  }
+
+  form.addEventListener('submit', (e) => { e.preventDefault(); send(); });
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  editor.addEventListener('input', refreshSend);
+
+  function addChip(name) {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    const up = document.createElement('span');
+    up.setAttribute('aria-label', 'Uploading ' + name);
+    up.textContent = '⏳';
+    const label = document.createElement('span');
+    label.textContent = name;
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.setAttribute('aria-label', 'Remove ' + name);
+    rm.textContent = '×';
+    rm.addEventListener('click', () => { c.remove(); refreshSend(); });
+    c.append(up, label, rm);
+    chips.appendChild(c);
+    refreshSend();
+    setTimeout(() => { up.remove(); refreshSend(); }, mock.uploadMs);
+  }
+  editor.addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData?.files || [])];
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (files.length) { e.preventDefault(); files.forEach((f) => addChip(f.name)); }
+    else if (text.length >= 10000) { e.preventDefault(); addChip('pasted text attachment'); }
+  });
+
+  // Client-side navigation, like ChatGPT's sidebar.
+  function renderConv() {
+    thread.innerHTML = '';
+    document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === location.pathname));
+  }
+  document.querySelectorAll('[data-nav]').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (generating) finish(true);
+    history.pushState({}, '', a.getAttribute('href'));
+    renderConv();
+  }));
+  addEventListener('popstate', renderConv);
+  renderConv();
+})();
+</script>
+</body>
+</html>

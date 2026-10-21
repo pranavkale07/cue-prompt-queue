@@ -29,8 +29,12 @@ manually.**
 - Auto-sends the next prompt a short delay after ChatGPT goes idle.
 - Per-conversation queues, persisted in `chrome.storage` (survive reloads). A
   queue started in a brand-new chat carries over once the conversation gets a
-  real id.
-- Pause/resume auto-send; halts safely if a send fails.
+  real id; opening another chat from a new one leaves both queues alone.
+- Pause/resume auto-send. It halts safely if a send fails or ChatGPT shows an
+  error (e.g. "Something went wrong", a usage limit), and pauses when you press
+  ChatGPT's Stop button.
+- Safe with several tabs: tabs on the same chat share its queue, and only one
+  of them sends it, so nothing goes out twice.
 
 ## Installation
 
@@ -59,13 +63,15 @@ All site-specific logic lives in one adapter (`src/adapters/chatgpt.ts`):
 | Attachments | chips in `[data-composer-attachments]`, one `Remove <name>` button each; queued files are re-attached with a synthetic paste |
 | Uploading? | an `Uploading <name>` label on a chip, or Send still disabled |
 | Conversation id | `/c/<uuid>` in the URL |
+| Reply failed | red-styled text (or "Something went wrong" / "hit your limit" wording) after the latest user message, outside the reply itself. Heuristic: not verified against a live error |
 
 Each lookup also tries the older selectors (`#prompt-textarea`,
 `[data-testid="send-button"]`, `[data-testid="stop-button"]`) in case ChatGPT
 still serves the previous composer to some accounts.
 
 The engine (`src/engine.ts`) polls generation state every 250ms and runs the
-queue state machine. Adding another site (e.g. Claude) means implementing the
+queue state machine. Only the tab holding the conversation's Web Lock
+(`src/lock.ts`) sends; other tabs on that chat stand by. Adding another site (e.g. Claude) means implementing the
 `SiteAdapter` interface - nothing else needs to change.
 
 ## Develop
@@ -76,7 +82,14 @@ npm run dev        # vite build --watch -> rebuilds dist/ on change
 npm run build      # typecheck + production build
 npm run typecheck
 npm run package    # build + zip dist/ into releases/cue-prompt-queue-<version>-chrome.zip
+npm run test:e2e   # end-to-end tests (needs a build first, see below)
 ```
+
+`npm run test:e2e` loads `dist/` into Chromium and drives it against a mock
+ChatGPT page (`test/e2e/mock-chatgpt.html`). It checks the extension's logic,
+not whether the selectors still match chatgpt.com. The first time, run
+`npx playwright install chromium`. Pass a word to run only matching tests
+(`npm run test:e2e -- stop`), and set `HEADED=1` to watch.
 
 ## Project layout
 
@@ -91,11 +104,16 @@ src/
   engine.ts              # idle-detection + auto-send state machine
   queue.ts               # queue model + per-conversation persistence
   settings.ts            # settings model + storage (read by content script)
+  storage.ts             # chrome.storage access that survives a context reload
+  lock.ts                # which tab sends a conversation's queue (Web Locks)
   panel.ts               # playlist-style dock UI (Shadow DOM)
   panel.css              # dock styles (inlined into the shadow root)
   adapters/
     types.ts             # SiteAdapter interface
     chatgpt.ts           # ChatGPT selectors & DOM interaction
+test/e2e/
+  mock-chatgpt.html      # stand-in for chatgpt.com's composer and SPA routing
+  run.mjs                # end-to-end tests (Playwright)
 ```
 
 ## Privacy & Permissions

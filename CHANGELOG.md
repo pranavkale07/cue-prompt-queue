@@ -7,10 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Opening a saved chat from a new chat no longer wipes that chat's queue, and a
+  queue made in a new chat no longer moves into (and auto-sends in) whichever
+  chat you open next. It now stays with the new chat.
+- Two tabs open on the same chat no longer send every queued prompt twice.
+  Tabs on a chat share its queue (adding or removing in one shows in the
+  other), and only one tab sends it; the others say so.
+- Each tab's new chat has its own queue instead of sharing one across tabs.
+- Pressing ChatGPT's Stop button no longer sends the next prompt right away.
+  Auto-send pauses until you press ▶.
+- When a reply fails or ChatGPT shows an error or a usage limit, auto-send stops
+  with the error shown, instead of sending the rest of the queue into a broken
+  chat. Pressing ▶ resumes anyway.
+- Cue waits until a reply has visibly started before treating ChatGPT as idle,
+  so a slow-to-appear Stop button can't make it send the next prompt too early
+  (with a short delay, this used to halt with "never saw it leave the composer").
+- Switching chats while a prompt is being sent no longer sends it into the chat
+  you switched to, or removes a prompt from that chat's queue.
+- An auto-send error stays on screen after you send a message yourself.
+- The ⏸/▶ button now updates when you pause or resume while a reply is
+  generating.
+- No more errors from the dock after the extension is updated while a ChatGPT
+  tab is open.
+- Empty queues are removed from storage instead of being kept forever.
+
 ### Added
 - Long queued prompts get a ▾/▴ button next to ✕ to expand and collapse them
   again (clicking the text still works too). Expanded prompts stay expanded
   when the queue changes, e.g. after the prompt above them is sent.
+- Setting: "Enter queues while generating" (on by default). Turn it off to
+  leave Enter to ChatGPT; the Queue button still works.
+- Clear asks for a second click ("Clear all?") so one stray click can't wipe
+  the queue.
+- End-to-end tests against a mock ChatGPT page: `npm run test:e2e`.
 
 ## [0.2.0] - 2026-10-20
 

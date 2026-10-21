@@ -10,11 +10,13 @@
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/generate-icons.mjs",
     "version:print": "node -e \"process.stdout.write(require('./package.json').version)\"",
-    "package": "npm run build && mkdir -p releases && cd dist && zip -r -FS ../releases/cue-prompt-queue-$(npm run version:print --silent)-chrome.zip . && cd .."
+    "package": "npm run build && mkdir -p releases && cd dist && zip -r -FS ../releases/cue-prompt-queue-$(npm run version:print --silent)-chrome.zip . && cd ..",
+    "test:e2e": "node test/e2e/run.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.270",
     "@types/node": "^25.9.3",
+    "playwright": "^1.56.1",
     "sharp": "^0.35.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
