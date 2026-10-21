@@ -12,6 +12,9 @@ import type { SiteAdapter } from './types';
  *                 (<name> is the File's name verbatim; duplicates allowed), and
  *                 an "Uploading <name>" label while that chip uploads
  *
+ * Not verified live: how a failed reply or a usage limit is rendered. The
+ * error check (responseError) is a heuristic, see ERROR_STYLE_SELECTOR.
+ *
  * The June 2026 selectors (#prompt-textarea, send-button / stop-button testids,
  * the grid-area:trailing slot) are kept first in each list in case ChatGPT
  * rolls back or still serves the old composer to some accounts.
@@ -82,6 +85,9 @@ const STOP_SELECTORS = [
   'form button[aria-label="Stop"]',
   'form button[aria-label*="Stop" i]',
 ];
+// Clicking one of these pauses auto-send, so match the stop-generating button
+// exactly: the loose last selector above could also hit e.g. a dictation stop.
+const STOP_CONTROL_SELECTOR = STOP_SELECTORS.slice(0, 3).join(', ');
 
 // Old composer: a named CSS grid whose trailing area holds the dictation/voice
 // and send/stop buttons and stays mounted across state changes.
@@ -114,6 +120,28 @@ const CHIP_REMOVE_SELECTOR = '[data-composer-attachments] button[aria-label^="Re
 
 // A long paste becomes a chip with this name instead of inline text.
 const PASTED_TEXT_NAME = 'pasted text attachment';
+
+// Error notices for a turn ("Something went wrong…", a usage limit) are styled
+// red; the model's own prose never is. Scoped to what follows the latest user
+// message, so an old error that was retried past doesn't count.
+const ERROR_STYLE_SELECTOR = [
+  '[class*="text-token-text-error"]',
+  '[class*="border-red-500"]',
+  '[class*="text-red-500"]',
+  '[class*="text-red-600"]',
+].join(', ');
+const ERROR_TEXT = [
+  /something went wrong/i,
+  /network error/i,
+  /error in (the )?message stream/i,
+  /too many requests/i,
+  /\b(hit|reached)\b.{0,40}\blimit\b/i,
+];
+// Text that is conversation content, not site UI: replies, user messages and
+// the composer. Errors are never looked for in here.
+const CONTENT_SELECTOR = '.markdown, [data-message-author-role="user"], [contenteditable="true"]';
+const USER_MESSAGE_SELECTOR = '[data-message-author-role="user"]';
+const MAX_ERROR_LENGTH = 160;
 
 export class ChatGptAdapter implements SiteAdapter {
   readonly name = 'chatgpt';
@@ -186,6 +214,43 @@ export class ChatGptAdapter implements SiteAdapter {
     return firstMatch(STOP_SELECTORS) !== null;
   }
 
+  isStopControl(target: Element): boolean {
+    return target.closest(STOP_CONTROL_SELECTOR) !== null;
+  }
+
+  isSendControl(target: Element): boolean {
+    return target.closest(SEND_SELECTORS.join(', ')) !== null;
+  }
+
+  responseError(): string | null {
+    const root = document.querySelector('main') ?? document.body;
+    const users = root.querySelectorAll(USER_MESSAGE_SELECTOR);
+    const lastUser = users[users.length - 1] ?? null;
+    const afterLastUser = (node: Node): boolean =>
+      !lastUser ||
+      (!lastUser.contains(node) &&
+        (lastUser.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+
+    for (const el of root.querySelectorAll(ERROR_STYLE_SELECTOR)) {
+      const text = collapseWs(el.textContent ?? '');
+      if (text && afterLastUser(el) && !el.closest(CONTENT_SELECTOR)) return clip(text);
+    }
+    // Unstyled notices: match their wording, walking only what follows the
+    // latest user message.
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    if (lastUser) walker.currentNode = lastUser;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const parent = node.parentElement;
+      if (!parent || !(node.textContent ?? '').trim() || !afterLastUser(node)) continue;
+      // Read the whole parent (a notice may be split across inline elements),
+      // but never a container that holds conversation content.
+      if (parent.closest(CONTENT_SELECTOR) || parent.querySelector(CONTENT_SELECTOR)) continue;
+      const text = collapseWs(parent.textContent ?? '');
+      if (ERROR_TEXT.some((re) => re.test(text))) return clip(text);
+    }
+    return null;
+  }
+
   hasAttachments(): boolean {
     return firstMatch(ATTACHMENT_SELECTORS) !== null;
   }
@@ -248,6 +313,10 @@ export class ChatGptAdapter implements SiteAdapter {
       composerAnchor: this.getComposerAnchor() !== null,
     };
   }
+}
+
+function clip(text: string): string {
+  return text.length > MAX_ERROR_LENGTH ? text.slice(0, MAX_ERROR_LENGTH - 1) + '…' : text;
 }
 
 function chipName(removeButton: Element): string {

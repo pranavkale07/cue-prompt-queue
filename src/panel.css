@@ -134,6 +134,8 @@
 }
 .icon-btn:hover { background: #ececef; }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
+/* Clear, after the first click: asks for a second one. */
+.icon-btn.armed { color: #e5484d; font-weight: 600; font-size: 12px; }
 
 /* Always-visible one-line strip (hugs the composer) */
 .strip {
@@ -180,6 +182,7 @@
 .dot.waiting { background: #f4b400; }
 .dot.error { background: #e5484d; }
 .dot.held { background: #f4b400; }
+.dot.standby { background: #c4c7cc; }
 .dot.paused { background: #c4c7cc; }
 .dot.idle { background: #c4c7cc; }
 

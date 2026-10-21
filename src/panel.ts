@@ -2,10 +2,12 @@ import dockCss from './panel.css?inline';
 import type { SiteAdapter } from './adapters/types';
 import type { Queue, QueueItem } from './queue';
 import type { Engine, EngineStatus } from './engine';
+import { storageArea } from './storage';
 
 const UI_STATE_KEY = 'dock:ui';
 const GAP_PX = 8;
 const FLASH_MS = 6000;
+const CLEAR_CONFIRM_MS = 3000;
 
 interface UiState {
   collapsed: boolean;
@@ -41,7 +43,9 @@ export class Dock {
   private engineError: string | null = null; // recoverable send error
   private flashNotice: string | null = null; // short-lived (e.g. "can't queue this")
   private flashTimer: number | null = null;
-  private holdNotice: string | null = null; // auto-send waiting on the composer
+  private holdNotice: string | null = null; // why auto-send isn't sending (held, standby, stopped)
+
+  private clearArmTimer: number | null = null;
 
   // drag state
   private draggingId: string | null = null;
@@ -144,14 +148,15 @@ export class Dock {
   }
 
   private async loadUiState(): Promise<void> {
-    const stored = await chrome.storage.local.get(UI_STATE_KEY);
+    const area = storageArea();
+    const stored = area ? await area.get(UI_STATE_KEY) : {};
     if (stored[UI_STATE_KEY]) {
       this.ui = { ...this.ui, ...(stored[UI_STATE_KEY] as UiState) };
     }
   }
 
   private saveUiState(): void {
-    void chrome.storage.local.set({ [UI_STATE_KEY]: this.ui });
+    void storageArea()?.set({ [UI_STATE_KEY]: this.ui });
   }
 
   private render(): void {
@@ -183,12 +188,35 @@ export class Dock {
       this.toggleCollapsed();
     });
     playBtn.addEventListener('click', () => this.engine.setRunning(!this.engine.isRunning));
-    clearBtn.addEventListener('click', () => this.queue.clear());
+    clearBtn.addEventListener('click', () => this.onClear());
 
     dock.append(rows, strip);
     this.root.appendChild(dock);
 
     this.els = { dock, rows, caret, label, dot, playBtn, clearBtn };
+  }
+
+  /** Clearing takes a second click within CLEAR_CONFIRM_MS, so one stray click can't wipe the queue. */
+  private onClear(): void {
+    const { clearBtn } = this.els;
+    if (this.clearArmTimer === null) {
+      clearBtn.classList.add('armed');
+      clearBtn.textContent = 'Clear all?';
+      clearBtn.title = 'Click again to remove every queued prompt';
+      this.clearArmTimer = window.setTimeout(() => this.disarmClear(), CLEAR_CONFIRM_MS);
+      return;
+    }
+    this.disarmClear();
+    this.queue.clear();
+  }
+
+  private disarmClear(): void {
+    if (this.clearArmTimer !== null) window.clearTimeout(this.clearArmTimer);
+    this.clearArmTimer = null;
+    const { clearBtn } = this.els;
+    clearBtn.classList.remove('armed');
+    clearBtn.textContent = '✕';
+    clearBtn.title = 'Clear queue';
   }
 
   private toggleCollapsed(): void {
@@ -225,7 +253,6 @@ export class Dock {
 
     items.forEach((item, idx) => {
       const li = el('li', 'row') as HTMLLIElement;
-      li.draggable = true;
       li.dataset.id = item.id;
 
       const grip = el('span', 'grip', '⠿');
@@ -286,7 +313,7 @@ export class Dock {
     playBtn.textContent = status.running ? '⏸' : '▶';
     playBtn.title = status.running ? 'Pause auto-send' : 'Resume auto-send';
     this.engineError = status.state === 'error' && status.error ? `⚠ ${status.error}` : null;
-    this.holdNotice = status.state === 'held' && status.hold ? status.hold : null;
+    this.holdNotice = status.notice ?? null;
     this.renderStrip();
   }
 

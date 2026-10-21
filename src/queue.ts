@@ -1,4 +1,5 @@
 import type { Attachment } from './attachments';
+import { onLocalChanged, storageArea } from './storage';
 
 export interface QueueItem {
   id: string;
@@ -10,29 +11,34 @@ export interface QueueItem {
 type Listener = (items: QueueItem[]) => void;
 
 const STORAGE_PREFIX = 'queue:';
+// Where 0.2.0 and earlier kept the queue of every unsaved chat, in all tabs.
+const LEGACY_NEW_KEY = STORAGE_PREFIX + 'new';
+const TAB_ID_KEY = 'cue:tab';
+
+/**
+ * An id for this tab that survives reloads (sessionStorage is per tab), so a
+ * new chat's queue stays with the tab it was made in instead of showing up in
+ * every tab's new chat.
+ */
+function tabId(): string {
+  try {
+    let id = sessionStorage.getItem(TAB_ID_KEY);
+    if (!id) {
+      id = newId();
+      sessionStorage.setItem(TAB_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return 'tab';
+  }
+}
 
 function keyFor(convId: string): string {
-  return STORAGE_PREFIX + convId;
+  return convId === 'new' ? `${LEGACY_NEW_KEY}:${tabId()}` : STORAGE_PREFIX + convId;
 }
 
 function newId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-/**
- * chrome.storage.local, or null when the extension context is gone — e.g. the
- * extension was reloaded/updated while this tab stayed open, which severs the
- * content script's bridge and leaves `chrome.storage` undefined. Reading
- * `chrome.*` after invalidation can also throw, hence the try/catch. Callers
- * fall back to an in-memory queue so nothing crashes; persistence resumes once
- * the tab is reloaded.
- */
-function storageArea(): chrome.storage.LocalStorageArea | null {
-  try {
-    return chrome?.storage?.local ?? null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -44,19 +50,40 @@ function storageArea(): chrome.storage.LocalStorageArea | null {
  * id; storage keeps just their names. After a reload the names remain but the
  * data is gone, which `attachmentsFor` reports so the item is never sent
  * without them.
+ *
+ * Other tabs open on the same conversation share the stored queue: changes
+ * they make are picked up from storage.onChanged.
  */
 export class Queue {
   private items: QueueItem[] = [];
   private convId = 'new';
   private listeners = new Set<Listener>();
   private attachmentData = new Map<string, Attachment[]>();
+  // Values this tab wrote that onChanged hasn't echoed back yet.
+  private ownWrites: string[] = [];
+
+  constructor() {
+    onLocalChanged((changes) => {
+      const change = changes[this.storageKey];
+      if (change) this.sync((change.newValue as QueueItem[] | undefined) ?? []);
+    });
+  }
 
   /** Load the queue for `convId` from storage, replacing current contents. */
   async load(convId: string): Promise<void> {
     this.convId = convId;
+    const key = keyFor(convId);
     const area = storageArea();
-    const stored = area ? await area.get(keyFor(convId)) : {};
-    this.items = (stored[keyFor(convId)] as QueueItem[] | undefined) ?? [];
+    const stored = area ? await area.get([key, LEGACY_NEW_KEY]) : {};
+    if (this.convId !== convId) return; // switched again while loading
+    this.items = (stored[key] as QueueItem[] | undefined) ?? [];
+    const legacy = stored[LEGACY_NEW_KEY] as QueueItem[] | undefined;
+    if (convId === 'new' && this.items.length === 0 && legacy?.length) {
+      // Adopt a new-chat queue saved by an older version, once.
+      this.items = legacy;
+      await this.persist();
+      await area?.remove(LEGACY_NEW_KEY);
+    }
     this.emit();
   }
 
@@ -67,7 +94,16 @@ export class Queue {
    */
   async rekey(newConvId: string): Promise<void> {
     const oldKey = keyFor(this.convId);
+    const newKey = keyFor(newConvId);
     this.convId = newConvId;
+    // Never overwrite a queue already stored for that conversation.
+    const area = storageArea();
+    const stored = ((area ? await area.get(newKey) : {})[newKey] as QueueItem[] | undefined) ?? [];
+    if (stored.length) {
+      const ids = new Set(this.items.map((it) => it.id));
+      this.items = [...stored.filter((it) => !ids.has(it.id)), ...this.items];
+      this.emit();
+    }
     await this.persist();
     if (oldKey !== keyFor(newConvId)) {
       await storageArea()?.remove(oldKey);
@@ -76,6 +112,11 @@ export class Queue {
 
   get conversationId(): string {
     return this.convId;
+  }
+
+  /** The storage key of the current queue; it identifies the queue across tabs. */
+  get storageKey(): string {
+    return keyFor(this.convId);
   }
 
   getItems(): QueueItem[] {
@@ -118,12 +159,23 @@ export class Queue {
     this.commit();
   }
 
-  /** Remove and return the head item. */
-  shift(): QueueItem | undefined {
-    const item = this.items.shift();
-    if (item) this.attachmentData.delete(item.id);
-    this.commit();
-    return item;
+  /**
+   * Remove an item that was just sent. `key` is the storageKey it was sent
+   * from: if the user has since switched to another conversation, it's removed
+   * from that one's stored queue rather than from the one now shown.
+   */
+  async removeSent(id: string, key: string): Promise<void> {
+    if (this.items.some((it) => it.id === id)) {
+      this.removeById(id);
+      return;
+    }
+    this.attachmentData.delete(id);
+    const area = storageArea();
+    if (!area || key === this.storageKey) return;
+    const stored = ((await area.get(key))[key] as QueueItem[] | undefined) ?? [];
+    const rest = stored.filter((it) => it.id !== id);
+    if (rest.length === stored.length) return;
+    await (rest.length ? area.set({ [key]: rest }) : area.remove(key));
   }
 
   editText(id: string, text: string): void {
@@ -178,7 +230,31 @@ export class Queue {
   }
 
   private async persist(): Promise<void> {
-    await storageArea()?.set({ [keyFor(this.convId)]: this.items });
+    const area = storageArea();
+    if (!area) return;
+    this.ownWrites.push(JSON.stringify(this.items));
+    // A write that changed nothing is never echoed; don't let those pile up.
+    if (this.ownWrites.length > 20) this.ownWrites.shift();
+    // Don't leave a key behind for every conversation that ever had a queue.
+    const key = this.storageKey;
+    await (this.items.length ? area.set({ [key]: this.items }) : area.remove(key));
+  }
+
+  /** Take on a change to this conversation's stored queue made by another tab. */
+  private sync(items: QueueItem[]): void {
+    const json = JSON.stringify(items);
+    const own = this.ownWrites.indexOf(json);
+    if (own >= 0) {
+      // Our own write coming back (and any older ones of ours before it).
+      this.ownWrites.splice(0, own + 1);
+      return;
+    }
+    if (json === JSON.stringify(this.items)) return;
+    this.items = items;
+    for (const id of this.attachmentData.keys()) {
+      if (!items.some((it) => it.id === id)) this.attachmentData.delete(id);
+    }
+    this.emit();
   }
 
   private emit(): void {
