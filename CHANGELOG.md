@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Long queued prompts get a ▾/▴ button next to ✕ to expand and collapse them
+  again (clicking the text still works too). Expanded prompts stay expanded
+  when the queue changes, e.g. after the prompt above them is sent.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added

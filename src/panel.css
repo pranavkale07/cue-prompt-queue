@@ -70,8 +70,8 @@
 .row .text,
 .row .clip { padding-top: 3px; }
 .row .icon-btn { margin: -1px 0; }
-/* Preview up to 3 lines (preserving the prompt's own line breaks); click to
-   expand to the full prompt. */
+/* Preview up to 3 lines (preserving the prompt's own line breaks); click it or
+   the ▾ toggle to expand to the full prompt, and again (or ▴) to collapse. */
 .row .text {
   flex: 1;
   min-width: 0; /* allow the flex item to shrink so long words wrap */
@@ -95,6 +95,14 @@
   cursor: text;
   user-select: text;
 }
+/* Expand/collapse toggle, only for prompts too long for the 3-line preview. */
+.row .expand-btn {
+  display: none;
+  font-size: 12px;
+  color: #8a9099;
+}
+.row.overflowing .expand-btn,
+.row.expanded .expand-btn { display: block; }
 /* Attachment count, e.g. "📎 2"; hover lists the names. */
 .row .clip {
   flex: none;
@@ -187,6 +195,7 @@
 .dock.theme-dark .row:hover { background: #3c3c40; }
 .dock.theme-dark .row .num { color: #8a8f98; }
 .dock.theme-dark .row .clip { color: #a9adb5; }
+.dock.theme-dark .row .expand-btn { color: #a9adb5; }
 .dock.theme-dark .row .text.placeholder { color: #8a8f98; }
 .dock.theme-dark .strip .label.notice:not(.severe) { color: #a9adb5; }
 .dock.theme-dark .icon-btn:hover { background: #44454a; }
