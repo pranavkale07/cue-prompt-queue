@@ -33,6 +33,8 @@ export class Dock {
 
   private ui: UiState = { collapsed: false };
   private items: QueueItem[] = [];
+  // Rows the user expanded, kept across re-renders (e.g. when a prompt sends).
+  private expandedIds = new Set<string>();
 
   // Notices shown in the strip in place of the count.
   private fatalNotice: string | null = null; // unrecoverable (e.g. composer not found)
@@ -50,6 +52,10 @@ export class Dock {
   private observedAnchor: HTMLElement | null = null;
   private resizeObserver: ResizeObserver;
 
+  // Shows a row's expand/collapse toggle only when its text is cut off. Fires
+  // when a row's text is first laid out or changes width.
+  private textObserver: ResizeObserver;
+
   // theme (mirrors ChatGPT's own light/dark setting)
   private themeObserver: MutationObserver;
 
@@ -65,6 +71,13 @@ export class Dock {
     this.marker.className = 'marker';
     this.resizeObserver = new ResizeObserver(() => this.reposition());
     this.themeObserver = new MutationObserver(() => this.applyTheme());
+    this.textObserver = new ResizeObserver((entries) => {
+      for (const { target } of entries) {
+        const text = target as HTMLElement;
+        const clipped = text.scrollHeight > text.clientHeight + 1;
+        text.parentElement?.classList.toggle('overflowing', clipped);
+      }
+    });
   }
 
   /** Match the dock's theme to ChatGPT's (it sets `dark` on <html>). */
@@ -206,6 +219,9 @@ export class Dock {
   private renderRows(items: QueueItem[]): void {
     const { rows } = this.els;
     rows.replaceChildren();
+    this.textObserver.disconnect();
+    const ids = new Set(items.map((item) => item.id));
+    for (const id of this.expandedIds) if (!ids.has(id)) this.expandedIds.delete(id);
 
     items.forEach((item, idx) => {
       const li = el('li', 'row') as HTMLLIElement;
@@ -216,7 +232,22 @@ export class Dock {
       const num = el('span', 'num', String(idx + 1));
       const text = el('span', 'text', item.text || 'Attachments only');
       text.classList.toggle('placeholder', !item.text);
-      text.title = 'Click to expand';
+      // Expand/collapse toggle; CSS shows it only for rows that are expanded
+      // or whose text is cut off.
+      const toggle = el('button', 'icon-btn expand-btn') as HTMLButtonElement;
+      toggle.draggable = false;
+      const setExpanded = (expanded: boolean): void => {
+        text.classList.toggle('expanded', expanded);
+        li.classList.toggle('expanded', expanded);
+        text.title = expanded ? '' : 'Click to expand';
+        toggle.textContent = expanded ? '▴' : '▾';
+        toggle.title = expanded ? 'Collapse' : 'Expand';
+        li.draggable = !expanded; // allow selecting text in the expanded view
+        if (expanded) this.expandedIds.add(item.id);
+        else this.expandedIds.delete(item.id);
+      };
+      setExpanded(this.expandedIds.has(item.id));
+      toggle.addEventListener('click', () => setExpanded(!text.classList.contains('expanded')));
       // A mouseup that ends a text selection also fires `click`; only toggle
       // when the pointer didn't move, so selecting text doesn't collapse it.
       let downX = 0;
@@ -227,10 +258,9 @@ export class Dock {
       });
       text.addEventListener('click', (e) => {
         if (Math.abs(e.clientX - downX) > 3 || Math.abs(e.clientY - downY) > 3) return;
-        const expanded = text.classList.toggle('expanded');
-        text.title = expanded ? '' : 'Click to expand';
-        li.draggable = !expanded; // allow selecting text in the expanded view
+        setExpanded(!text.classList.contains('expanded'));
       });
+      this.textObserver.observe(text);
       const del = el('button', 'icon-btn', '✕') as HTMLButtonElement;
       del.title = 'Remove';
       del.draggable = false;
@@ -245,7 +275,7 @@ export class Dock {
         clip.title = item.attachments.join('\n');
         li.append(clip);
       }
-      li.append(del);
+      li.append(toggle, del);
       rows.appendChild(li);
     });
   }
