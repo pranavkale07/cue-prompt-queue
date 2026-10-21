@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-21
+
 ### Fixed
 - Opening a saved chat from a new chat no longer wipes that chat's queue, and a
   queue made in a new chat no longer moves into (and auto-sends in) whichever
