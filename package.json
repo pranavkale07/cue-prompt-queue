@@ -1,6 +1,6 @@
 {
   "name": "gpt-queue-extension",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Queue multiple prompts and auto-send them as ChatGPT finishes each response.",
   "private": true,
   "type": "module",
