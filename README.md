@@ -4,7 +4,7 @@
 
 # Cue - Prompt Queue for ChatGPT
 
-[![Version](https://img.shields.io/badge/version-0.3.0-black)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-black)](CHANGELOG.md)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -121,6 +121,8 @@ test/e2e/
 - **No data collection.** Your queued prompts and preferences are stored only on
   your device via `chrome.storage.local`. Nothing is transmitted, and there is no
   analytics or remote code. See [PRIVACY.md](PRIVACY.md).
+- **Optional uninstall feedback.** Uninstalling opens a short, anonymous Google
+  Form. The extension sends nothing to it, and filling it in is up to you.
 - **`storage`** - save the queue and preferences locally so they survive reloads.
 - **Host access to chatgpt.com / chat.openai.com** - the extension runs only on
   ChatGPT, to read the composer and generation state and send queued prompts.

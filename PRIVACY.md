@@ -1,9 +1,11 @@
 # Privacy Policy - Cue (Prompt Queue for ChatGPT)
 
-_Last updated: 2026-10-20_
+_Last updated: 2026-11-05_
 
 Cue ("the extension") is designed to collect as little as
 possible. In short: **it does not collect, transmit, or sell any of your data.**
+The only feedback the developer receives is what you choose to submit in an
+optional form after uninstalling.
 
 ## What the extension stores
 
@@ -49,12 +51,21 @@ transmit page content anywhere.
 
 ## Data sharing
 
-None. No data is shared with the developer or any third party because no data
-is collected or transmitted in the first place.
+The extension shares no data with the developer or any third party, because it
+does not collect or transmit any. The only exception is what you choose to submit
+in the optional uninstall form described below.
 
 ## Removal
 
 Uninstalling the extension removes all locally stored queue data.
+
+## Optional uninstall feedback
+
+When you uninstall the extension, your browser opens a short feedback form hosted
+on Google Forms. Filling it in is optional, and the extension sends nothing to it.
+The form does not ask for your name or email. If you submit it, your answers are
+sent to the developer through Google Forms, and Google's own terms and privacy
+policy apply to that page.
 
 ## Contact
 
